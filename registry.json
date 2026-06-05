@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "plugins": [
+    {
+      "id": "auto-cpufreq",
+      "name": "auto-cpufreq",
+      "version": "1.0.0",
+      "official": false,
+      "author": "4rmcyt",
+      "description": "Monitor and control auto-cpufreq daemon: governor, turbo boost, CPU stats, and force-override.",
+      "repository": "https://github.com/4rmcyt/noctalia-auto-cpufreq",
+      "minNoctaliaVersion": "4.4.1",
+      "license": "MIT",
+      "tags": [
+        "Bar",
+        "Panel",
+        "System",
+        "Utility"
+      ],
+      "lastUpdated": "2026-06-05T00:00:00Z"
+    }
+  ]
+}
