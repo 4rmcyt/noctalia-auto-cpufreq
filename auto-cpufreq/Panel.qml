@@ -4,6 +4,7 @@ import qs.Commons
 import qs.Services.UI
 import qs.Services.System
 import qs.Widgets
+// BatteryService import kept for potential future use
 
 Item {
     id: root
@@ -121,36 +122,38 @@ Item {
                 }
             }
 
-            // ── Battery (BatteryService + NBattery widget) ────────────────────
+            // ── Battery (sysfs via BarWidget mainInstance) ────────────────────
             Rectangle {
-                id: batCard
                 Layout.fillWidth: true
                 implicitHeight: batRow.implicitHeight + Style.marginM * 2
                 color: Color.mSurfaceVariant
                 radius: Style.radiusM
-                visible: batCard.bat !== null
-
-                readonly property var bat: BatteryService.primaryDevice
-                    ?? (BatteryService.laptopBatteries.length > 0 ? BatteryService.laptopBatteries[0] : null)
-                readonly property real pct:      batCard.bat ? BatteryService.getPercentage(batCard.bat) : 0
-                readonly property bool charging: batCard.bat ? BatteryService.isCharging(batCard.bat)    : false
-                readonly property bool plugged:  batCard.bat ? BatteryService.isPluggedIn(batCard.bat)   : false
-                readonly property bool ready:    batCard.bat ? BatteryService.isDeviceReady(batCard.bat) : false
+                visible: (root.main?.batCapacity ?? -1) >= 0
 
                 RowLayout {
                     id: batRow
                     anchors { fill: parent; margins: Style.marginM }
                     spacing: Style.marginM
 
-                    NBattery {
-                        percentage: batCard.pct
-                        charging:   batCard.charging
-                        pluggedIn:  batCard.plugged
-                        ready:      batCard.ready
-                        low:        batCard.pct <= BatteryService.warningThreshold
-                        critical:   batCard.pct <= BatteryService.criticalThreshold
-                        baseSize:   Style.fontSizeXL
-                        showPercentageText: true
+                    NIcon {
+                        icon: {
+                            let s = root.main?.batStatus ?? ""
+                            let c = root.main?.batCapacity ?? 0
+                            if (s === "Charging") return "battery-charging"
+                            if (c >= 80) return "battery-4"
+                            if (c >= 60) return "battery-3"
+                            if (c >= 40) return "battery-2"
+                            if (c >= 20) return "battery-1"
+                            return "battery"
+                        }
+                        color: {
+                            let s = root.main?.batStatus ?? ""
+                            let c = root.main?.batCapacity ?? 100
+                            if (s === "Charging") return Color.mTertiary
+                            if (c <= 20) return Color.mError
+                            return Color.mOnSurface
+                        }
+                        pointSize: Style.fontSizeXL
                     }
 
                     ColumnLayout {
@@ -158,20 +161,21 @@ Item {
                         Layout.fillWidth: true
 
                         NText {
-                            text: Math.round(batCard.pct) + "%  ·  "
-                                + (batCard.charging ? pluginApi?.tr("panel.bat-charging")
-                                   : batCard.plugged ? pluginApi?.tr("panel.bat-plugged")
-                                   : pluginApi?.tr("panel.bat-discharging"))
+                            text: (root.main?.batCapacity ?? 0) + "%  ·  " + (root.main?.batStatus ?? "—")
                             pointSize: Style.fontSizeM
                             font.weight: Font.Bold
                             color: Color.mOnSurface
                         }
 
                         NText {
-                            text: BatteryService.getRateText(batCard.bat) ?? ""
+                            visible: (root.main?.batWatts ?? 0) > 0
+                            text: {
+                                let s = root.main?.batStatus ?? ""
+                                let w = root.main?.batWatts ?? 0
+                                return (s === "Charging" ? "+" : "−") + w.toFixed(1) + " W"
+                            }
                             pointSize: Style.fontSizeXS
                             color: Color.mOnSurfaceVariant
-                            visible: text !== ""
                         }
                     }
                 }

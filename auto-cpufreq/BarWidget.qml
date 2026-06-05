@@ -37,6 +37,12 @@ Item {
     property string turboOverride: "auto"   // "never" | "always" | "auto"
     property bool   pkexecFailed:  false
 
+    // Battery state (sysfs — more reliable than UPower on this system)
+    property int    batCapacity:   -1       // -1 = no battery
+    property string batStatus:     ""       // Charging / Discharging / Full
+    property real   batWatts:      0.0
+    property string batDevice:     ""       // BAT0, BAT1, etc.
+
     readonly property color govColor: {
         if (governor === "performance") return Color.mTertiary
         if (governor === "powersave")   return Color.mPrimary
@@ -82,6 +88,39 @@ Item {
             if (noTurboFile.text().trim() !== "") return
             let v = text().trim()
             if (v !== "") root.turboState = (v === "1") ? "on" : "off"
+        }
+    }
+
+    // ── Battery — sysfs ──────────────────────────────────────────────────────
+    Process {
+        id: batFinder
+        command: ["sh", "-c", "for d in /sys/class/power_supply/*/type; do [ \"$(cat $d 2>/dev/null)\" = 'Battery' ] && basename $(dirname $d) && exit 0; done"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let dev = text.trim()
+                if (dev !== "") { root.batDevice = dev; batUevent.reload() }
+            }
+        }
+    }
+
+    FileView {
+        id: batUevent
+        path: root.batDevice !== "" ? "/sys/class/power_supply/" + root.batDevice + "/uevent" : "/dev/null"
+        printErrors: false
+        onLoaded: {
+            let cap = -1, status = "", currentUa = 0, voltageUv = 0
+            for (let line of text().split("\n")) {
+                if (line.startsWith("POWER_SUPPLY_CAPACITY="))   cap = parseInt(line.split("=")[1]) || -1
+                else if (line.startsWith("POWER_SUPPLY_STATUS=")) status = line.split("=")[1]?.trim() ?? ""
+                else if (line.startsWith("POWER_SUPPLY_CURRENT_NOW=")) currentUa = parseInt(line.split("=")[1]) || 0
+                else if (line.startsWith("POWER_SUPPLY_VOLTAGE_NOW=")) voltageUv = parseInt(line.split("=")[1]) || 0
+            }
+            root.batCapacity = cap
+            root.batStatus   = status
+            root.batWatts    = (voltageUv > 0 && currentUa > 0)
+                ? Math.round((voltageUv / 1e6) * (currentUa / 1e6) * 10) / 10
+                : 0.0
         }
     }
 
@@ -169,6 +208,8 @@ Item {
         overrideReader.running = true
         turboOverrideReader.running = false
         turboOverrideReader.running = true
+        if (root.batDevice === "") { batFinder.running = false; batFinder.running = true }
+        else batUevent.reload()
     }
 
     // ── Poll timer ────────────────────────────────────────────────────────────
