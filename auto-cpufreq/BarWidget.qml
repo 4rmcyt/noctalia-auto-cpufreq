@@ -169,7 +169,6 @@ Item {
     }
 
     function setForce(mode) {
-        root.pkexecFailed = false
         forceProc.command = ["pkexec", "auto-cpufreq", "--force=" + mode]
         forceProc.running = false
         forceProc.running = true
@@ -177,7 +176,6 @@ Item {
     }
 
     function setTurbo(mode) {
-        root.pkexecFailed = false
         turboProc.command = ["pkexec", "auto-cpufreq", "--turbo=" + mode]
         turboProc.running = false
         turboProc.running = true

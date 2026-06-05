@@ -366,8 +366,10 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: Style.radiusS
-            color: parent.active ? Color.mPrimary : Qt.rgba(1, 1, 1, parent.containsMouse ? 0.1 : 0.05)
-            opacity: parent.enabled ? 1.0 : 0.3
+            color: parent.active ? Color.mPrimary : Color.mSurface
+            border.color: parent.active ? "transparent" : Color.mOutline
+            border.width: parent.active ? 0 : 1
+            opacity: parent.enabled ? 1.0 : 0.35
         }
 
         ColumnLayout {
