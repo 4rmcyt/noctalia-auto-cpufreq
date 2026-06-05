@@ -34,6 +34,7 @@ Item {
     property string turboState:    "—"
     property bool   daemonRunning: false
     property string forceOverride: "default"
+    property string turboOverride: "auto"   // "never" | "always" | "auto"
     property bool   pkexecFailed:  false
 
     readonly property color govColor: {
@@ -91,7 +92,7 @@ Item {
         // Try common paths: NixOS uses /run/, classic installs use /opt/auto-cpufreq/
         command: ["sh", "-c",
             "for f in /run/override.pickle /opt/auto-cpufreq/override.pickle; do " +
-            "  [ -f \"$f\" ] && strings \"$f\" | grep -E '^(powersave|performance)$' && exit 0; " +
+            "  [ -f \"$f\" ] && strings \"$f\" | grep -oE '(powersave|performance)' | head -1 && exit 0; " +
             "done; echo 'default'"]
         running: false
         stdout: StdioCollector {
@@ -107,14 +108,13 @@ Item {
         id: turboOverrideReader
         command: ["sh", "-c",
             "for f in /run/turbo-override.pickle /opt/auto-cpufreq/turbo-override.pickle; do " +
-            "  [ -f \"$f\" ] && strings \"$f\" | grep -E '^(never|always)$' && exit 0; " +
+            "  [ -f \"$f\" ] && strings \"$f\" | grep -oE '(never|always)' | head -1 && exit 0; " +
             "done; echo 'auto'"]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {
                 let v = text.trim()
-                // turboState is read from sysfs — override just tells us the intent
-                // we don't need to store it separately, sysfs reflects the result
+                root.turboOverride = (v === "never" || v === "always") ? v : "auto"
             }
         }
     }
@@ -167,6 +167,8 @@ Item {
         daemonChecker.running = true
         overrideReader.running = false
         overrideReader.running = true
+        turboOverrideReader.running = false
+        turboOverrideReader.running = true
     }
 
     // ── Poll timer ────────────────────────────────────────────────────────────

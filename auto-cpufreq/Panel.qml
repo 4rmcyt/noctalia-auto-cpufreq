@@ -373,21 +373,21 @@ Item {
                             SegItem {
                                 width: parent.width / 3; height: parent.height
                                 icon: "bolt-off"; label: pluginApi?.tr("panel.turbo-never")
-                                active: (root.main?.turboState ?? "") === "off"
+                                active: (root.main?.turboOverride ?? "") === "never"
                                 enabled: parent.avail; showDivider: true
                                 onClicked: root.main?.setTurbo("never")
                             }
                             SegItem {
                                 width: parent.width / 3; height: parent.height
                                 icon: "cpu"; label: pluginApi?.tr("panel.turbo-auto")
-                                active: false
+                                active: (root.main?.turboOverride ?? "auto") === "auto"
                                 enabled: parent.avail; showDivider: true
                                 onClicked: root.main?.setTurbo("auto")
                             }
                             SegItem {
                                 width: parent.width / 3; height: parent.height
                                 icon: "bolt"; label: pluginApi?.tr("panel.turbo-always")
-                                active: (root.main?.turboState ?? "") === "on"
+                                active: (root.main?.turboOverride ?? "") === "always"
                                 enabled: parent.avail; showDivider: false
                                 onClicked: root.main?.setTurbo("always")
                             }

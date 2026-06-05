@@ -4,7 +4,7 @@
     {
       "id": "auto-cpufreq",
       "name": "auto-cpufreq",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "official": false,
       "author": "4rmcyt",
       "description": "Monitor and control auto-cpufreq daemon: governor, turbo boost, CPU stats, and force-override.",
