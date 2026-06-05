@@ -79,12 +79,12 @@ Item {
         }
     }
 
-    // ── auto-cpufreq daemon: check via stats file existence + Process ─────────
-    FileView {
-        id: statsFile
-        path: "/var/run/auto-cpufreq.stats"
-        printErrors: false
-        onLoaded: root.daemonRunning = (text().length > 0)
+    // ── auto-cpufreq daemon: check via systemctl is-active ───────────────────
+    Process {
+        id: daemonChecker
+        command: ["systemctl", "is-active", "--quiet", "auto-cpufreq"]
+        running: false
+        onExited: (code) => { root.daemonRunning = (code === 0) }
     }
 
     // ── CPU usage via /proc/stat ──────────────────────────────────────────────
@@ -192,9 +192,10 @@ Item {
         boostFile.reload()
         amdPstateFile.reload()
         cpuFreqFile.reload()
-        statsFile.reload()
         procStatFile.reload()
         k10tempFile.reload()
+        daemonChecker.running = false
+        daemonChecker.running = true
     }
 
     // ── Polling timer ─────────────────────────────────────────────────────────
