@@ -281,108 +281,28 @@ Item {
                 }
             }
 
-            // ── Force override ────────────────────────────────────────────────
-            Rectangle {
+            // ── Force override — segmented control ────────────────────────────
+            SegmentedControl {
                 Layout.fillWidth: true
-                implicitHeight: forceCol.implicitHeight + Style.marginM * 2
-                color: Color.mSurfaceVariant
-                radius: Style.radiusM
-
-                ColumnLayout {
-                    id: forceCol
-                    anchors { fill: parent; margins: Style.marginM }
-                    spacing: Style.marginS
-
-                    NText {
-                        text: pluginApi?.tr("panel.section-force")
-                        pointSize: Style.fontSizeXS
-                        color: Color.mOnSurfaceVariant
-                        font.weight: Font.Medium
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Style.marginS
-
-                        ForceButton {
-                            icon: "leaf"
-                            label: pluginApi?.tr("panel.powersave")
-                            active: (root.main?.forceOverride ?? "") === "powersave"
-                            enabled: root.main?.daemonRunning ?? false
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setForce("powersave")
-                        }
-                        ForceButton {
-                            icon: "scale"
-                            label: pluginApi?.tr("panel.auto")
-                            active: (root.main?.forceOverride ?? "default") === "default"
-                            enabled: root.main?.daemonRunning ?? false
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setForce("reset")
-                        }
-                        ForceButton {
-                            icon: "gauge"
-                            label: pluginApi?.tr("panel.performance")
-                            active: (root.main?.forceOverride ?? "") === "performance"
-                            enabled: root.main?.daemonRunning ?? false
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setForce("performance")
-                        }
-                    }
-                }
+                enabled: root.main?.daemonRunning ?? false
+                label: pluginApi?.tr("panel.section-force")
+                segments: [
+                    { icon: "leaf",  text: pluginApi?.tr("panel.powersave"),   active: (root.main?.forceOverride ?? "") === "powersave",  action: function() { root.main?.setForce("powersave") } },
+                    { icon: "scale", text: pluginApi?.tr("panel.auto"),         active: (root.main?.forceOverride ?? "default") === "default", action: function() { root.main?.setForce("reset") } },
+                    { icon: "gauge", text: pluginApi?.tr("panel.performance"),  active: (root.main?.forceOverride ?? "") === "performance", action: function() { root.main?.setForce("performance") } }
+                ]
             }
 
-            // ── Turbo boost ───────────────────────────────────────────────────
-            Rectangle {
+            // ── Turbo boost — segmented control ───────────────────────────────
+            SegmentedControl {
                 Layout.fillWidth: true
-                implicitHeight: turboCol.implicitHeight + Style.marginM * 2
-                color: Color.mSurfaceVariant
-                radius: Style.radiusM
-
-                ColumnLayout {
-                    id: turboCol
-                    anchors { fill: parent; margins: Style.marginM }
-                    spacing: Style.marginS
-
-                    NText {
-                        text: pluginApi?.tr("panel.section-turbo")
-                        pointSize: Style.fontSizeXS
-                        color: Color.mOnSurfaceVariant
-                        font.weight: Font.Medium
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Style.marginS
-
-                        property bool turboAvailable: (root.main?.turboState ?? "n/a") !== "n/a"
-
-                        ForceButton {
-                            icon: "bolt-off"
-                            label: pluginApi?.tr("panel.turbo-never")
-                            active: (root.main?.turboState ?? "") === "off"
-                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setTurbo("never")
-                        }
-                        ForceButton {
-                            icon: "cpu"
-                            label: pluginApi?.tr("panel.turbo-auto")
-                            active: false
-                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setTurbo("auto")
-                        }
-                        ForceButton {
-                            icon: "bolt"
-                            label: pluginApi?.tr("panel.turbo-always")
-                            active: (root.main?.turboState ?? "") === "on"
-                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
-                            Layout.fillWidth: true
-                            onClicked: root.main?.setTurbo("always")
-                        }
-                    }
-                }
+                enabled: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "n/a") !== "n/a"
+                label: pluginApi?.tr("panel.section-turbo")
+                segments: [
+                    { icon: "bolt-off", text: pluginApi?.tr("panel.turbo-never"),  active: (root.main?.turboState ?? "") === "off", action: function() { root.main?.setTurbo("never") } },
+                    { icon: "cpu",      text: pluginApi?.tr("panel.turbo-auto"),    active: false,                                   action: function() { root.main?.setTurbo("auto") } },
+                    { icon: "bolt",     text: pluginApi?.tr("panel.turbo-always"),  active: (root.main?.turboState ?? "") === "on",  action: function() { root.main?.setTurbo("always") } }
+                ]
             }
         }
     }
@@ -415,37 +335,92 @@ Item {
         }
     }
 
-    component ForceButton: MouseArea {
-        property string icon: ""
-        property string label: ""
-        property bool   active: false
-        implicitHeight: 48 * Style.uiScaleRatio
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+    component SegmentedControl: Item {
+        property string    label:    ""
+        property var       segments: []
+        property bool      enabled:  true
 
-        Rectangle {
-            anchors.fill: parent
-            radius: Style.radiusS
-            color: parent.active ? Color.mPrimary : Color.mSurface
-            border.color: parent.active ? "transparent" : Color.mOutline
-            border.width: parent.active ? 0 : 1
-            opacity: parent.enabled ? 1.0 : 0.35
-        }
+        implicitHeight: segCol.implicitHeight
 
         ColumnLayout {
-            anchors.centerIn: parent
-            spacing: 2
-            NIcon {
-                icon: parent.icon
-                pointSize: Style.fontSizeM
-                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
-                Layout.alignment: Qt.AlignHCenter
-            }
+            id: segCol
+            anchors { left: parent.left; right: parent.right }
+            spacing: Style.marginS
+
             NText {
                 text: parent.label
                 pointSize: Style.fontSizeXS
-                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
-                Layout.alignment: Qt.AlignHCenter
+                color: Color.mOnSurfaceVariant
+                font.weight: Font.Medium
+            }
+
+            // Single pill container with dividers
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 40 * Style.uiScaleRatio
+                color: Color.mSurface
+                radius: Style.radiusM
+                border.color: Color.mOutline
+                border.width: 1
+                opacity: parent.parent.enabled ? 1.0 : 0.4
+                clip: true
+
+                Row {
+                    anchors.fill: parent
+
+                    Repeater {
+                        model: parent.parent.parent.parent.segments
+
+                        delegate: Item {
+                            width: parent.width / parent.parent.parent.parent.parent.segments.length
+                            height: parent.height
+
+                            // Active background pill
+                            Rectangle {
+                                anchors { fill: parent; margins: 3 }
+                                radius: Style.radiusS
+                                color: modelData.active ? Color.mPrimary : "transparent"
+                            }
+
+                            // Divider (not on last item)
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 1
+                                height: parent.height * 0.5
+                                color: Color.mOutline
+                                visible: index < parent.parent.parent.parent.parent.segments.length - 1
+                                opacity: 0.5
+                            }
+
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: 1
+
+                                NIcon {
+                                    icon: modelData.icon
+                                    pointSize: Style.fontSizeS
+                                    color: modelData.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                                    Layout.alignment: Qt.AlignHCenter
+                                }
+                                NText {
+                                    text: modelData.text
+                                    pointSize: Style.fontSizeXS - 1
+                                    color: modelData.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                                    Layout.alignment: Qt.AlignHCenter
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: parent.parent.parent.parent.parent.enabled
+                                cursorShape: Qt.PointingHandCursor
+                                hoverEnabled: true
+                                onClicked: modelData.action()
+                            }
+                        }
+                    }
+                }
             }
         }
     }
