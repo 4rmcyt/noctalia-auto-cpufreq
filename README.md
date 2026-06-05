@@ -54,15 +54,6 @@ The script:
 Add to your NixOS configuration:
 
 ```nix
-security.polkit.extraConfig = ''
-  polkit.addRule(function(action, subject) {
-    if (action.id === "org.auto-cpufreq.pkexec" &&
-        subject.isInGroup("wheel")) {
-      return polkit.Result.YES;
-    }
-  });
-'';
-
 environment.etc."polkit-1/actions/org.auto-cpufreq.pkexec.policy".text = ''
   <?xml version="1.0" encoding="UTF-8"?>
   <!DOCTYPE policyconfig PUBLIC
@@ -75,13 +66,15 @@ environment.etc."polkit-1/actions/org.auto-cpufreq.pkexec.policy".text = ''
       <defaults>
         <allow_any>auth_admin</allow_any>
         <allow_inactive>auth_admin</allow_inactive>
-        <allow_active>auth_admin</allow_active>
+        <allow_active>auth_admin_keep</allow_active>
       </defaults>
       <annotate key="org.freedesktop.policykit.exec.path">${pkgs.auto-cpufreq}/bin/auto-cpufreq</annotate>
     </action>
   </policyconfig>
 '';
 ```
+
+`auth_admin_keep` — запрашивает пароль один раз, кеширует на ~5 минут.
 
 Then rebuild: `sudo nixos-rebuild switch`
 
