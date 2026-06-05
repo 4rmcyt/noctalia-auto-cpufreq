@@ -11,6 +11,7 @@
     "section-turbo": "TURBO BOOST",
     "forced": "forced",
     "turbo": "turbo",
+    "pkexec-error": "pkexec not authorized. See README for polkit setup.",
     "powersave": "powersave",
     "auto": "auto",
     "performance": "performance",

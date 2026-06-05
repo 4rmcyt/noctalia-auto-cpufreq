@@ -192,6 +192,35 @@ Item {
                 }
             }
 
+            // ── pkexec error banner ───────────────────────────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: errorRow.implicitHeight + Style.marginM * 2
+                color: Qt.rgba(Color.mError.r, Color.mError.g, Color.mError.b, 0.15)
+                radius: Style.radiusM
+                visible: root.main?.pkexecFailed ?? false
+
+                RowLayout {
+                    id: errorRow
+                    anchors { fill: parent; margins: Style.marginM }
+                    spacing: Style.marginM
+
+                    NIcon {
+                        icon: "alert-triangle"
+                        color: Color.mError
+                        pointSize: Style.fontSizeM
+                    }
+
+                    NText {
+                        text: pluginApi?.tr("panel.pkexec-error")
+                        pointSize: Style.fontSizeXS
+                        color: Color.mError
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
             // ── Force override ────────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true

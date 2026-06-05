@@ -140,19 +140,36 @@ Item {
     }
 
     // ── Actions ───────────────────────────────────────────────────────────────
+    property bool pkexecFailed: false
+
     Process {
         id: forceProc
         running: false
-        onExited: (code) => { if (code === 0) root.refreshAll() }
+        onExited: (code) => {
+            if (code === 0) {
+                root.pkexecFailed = false
+                root.refreshAll()
+            } else if (code === 127 || code === 126) {
+                root.pkexecFailed = true
+            }
+        }
     }
 
     Process {
         id: turboProc
         running: false
-        onExited: (code) => { if (code === 0) root.refreshAll() }
+        onExited: (code) => {
+            if (code === 0) {
+                root.pkexecFailed = false
+                root.refreshAll()
+            } else if (code === 127 || code === 126) {
+                root.pkexecFailed = true
+            }
+        }
     }
 
     function setForce(mode) {
+        root.pkexecFailed = false
         forceProc.command = ["pkexec", "auto-cpufreq", "--force=" + mode]
         forceProc.running = false
         forceProc.running = true
@@ -160,6 +177,7 @@ Item {
     }
 
     function setTurbo(mode) {
+        root.pkexecFailed = false
         turboProc.command = ["pkexec", "auto-cpufreq", "--turbo=" + mode]
         turboProc.running = false
         turboProc.running = true
