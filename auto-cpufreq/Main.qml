@@ -209,4 +209,8 @@ Item {
     }
 
     onRefreshMsChanged: pollTimer.interval = refreshMs
+
+    Component.onCompleted: {
+        if (pluginApi) pluginApi.mainInstance = root
+    }
 }
