@@ -127,7 +127,15 @@ Item {
                 implicitHeight: batRow.implicitHeight + Style.marginM * 2
                 color: Color.mSurfaceVariant
                 radius: Style.radiusM
-                visible: BatteryService.batteryReady
+                // show if any laptop battery found, even if displayDevice isn't ready
+                visible: BatteryService.batteryReady || BatteryService.laptopBatteries.length > 0
+
+                readonly property var bat: BatteryService.primaryDevice
+                    ?? (BatteryService.laptopBatteries.length > 0 ? BatteryService.laptopBatteries[0] : null)
+                readonly property real pct:      bat ? BatteryService.getPercentage(bat) : 0
+                readonly property bool charging: bat ? BatteryService.isCharging(bat)   : false
+                readonly property bool plugged:  bat ? BatteryService.isPluggedIn(bat)  : false
+                readonly property bool ready:    bat ? BatteryService.isDeviceReady(bat): false
 
                 RowLayout {
                     id: batRow
@@ -135,12 +143,12 @@ Item {
                     spacing: Style.marginM
 
                     NBattery {
-                        percentage: BatteryService.batteryPercentage
-                        charging:   BatteryService.batteryCharging
-                        pluggedIn:  BatteryService.batteryPluggedIn
-                        ready:      BatteryService.batteryReady
-                        low:        BatteryService.batteryPercentage <= BatteryService.warningThreshold
-                        critical:   BatteryService.batteryPercentage <= BatteryService.criticalThreshold
+                        percentage: parent.parent.pct
+                        charging:   parent.parent.charging
+                        pluggedIn:  parent.parent.plugged
+                        ready:      parent.parent.ready
+                        low:        parent.parent.pct <= BatteryService.warningThreshold
+                        critical:   parent.parent.pct <= BatteryService.criticalThreshold
                         baseSize:   Style.fontSizeXL
                         showPercentageText: true
                     }
@@ -150,9 +158,9 @@ Item {
                         Layout.fillWidth: true
 
                         NText {
-                            text: Math.round(BatteryService.batteryPercentage) + "%  ·  "
-                                + (BatteryService.batteryCharging ? pluginApi?.tr("panel.bat-charging")
-                                   : BatteryService.batteryPluggedIn ? pluginApi?.tr("panel.bat-plugged")
+                            text: Math.round(parent.parent.parent.pct) + "%  ·  "
+                                + (parent.parent.parent.charging ? pluginApi?.tr("panel.bat-charging")
+                                   : parent.parent.parent.plugged ? pluginApi?.tr("panel.bat-plugged")
                                    : pluginApi?.tr("panel.bat-discharging"))
                             pointSize: Style.fontSizeM
                             font.weight: Font.Bold
@@ -160,7 +168,7 @@ Item {
                         }
 
                         NText {
-                            text: BatteryService.getRateText(BatteryService.primaryDevice)
+                            text: BatteryService.getRateText(parent.parent.parent.bat) ?? ""
                             pointSize: Style.fontSizeXS
                             color: Color.mOnSurfaceVariant
                             visible: text !== ""
@@ -391,6 +399,7 @@ Item {
     }
 
     component StatCell: ColumnLayout {
+        id: statCell
         property string icon: ""
         property string label: ""
         property string value: "—"
@@ -398,20 +407,21 @@ Item {
         spacing: 2
         Layout.fillWidth: true
         NIcon {
-            icon: parent.icon; pointSize: Style.fontSizeM
+            icon: statCell.icon; pointSize: Style.fontSizeM
             color: Color.mOnSurfaceVariant; Layout.alignment: Qt.AlignHCenter
         }
         NText {
-            text: parent.value; pointSize: Style.fontSizeM; font.weight: Font.Bold
-            color: parent.valueColor; Layout.alignment: Qt.AlignHCenter
+            text: statCell.value; pointSize: Style.fontSizeM; font.weight: Font.Bold
+            color: statCell.valueColor; Layout.alignment: Qt.AlignHCenter
         }
         NText {
-            text: parent.label; pointSize: Style.fontSizeXS
+            text: statCell.label; pointSize: Style.fontSizeXS
             color: Color.mOnSurfaceVariant; Layout.alignment: Qt.AlignHCenter
         }
     }
 
     component SegItem: Item {
+        id: segItem
         property string icon:        ""
         property string label:       ""
         property bool   active:      false
@@ -422,32 +432,32 @@ Item {
         Rectangle {
             anchors { fill: parent; margins: 3 }
             radius: Style.radiusS
-            color: parent.active ? Color.mPrimary : "transparent"
+            color: segItem.active ? Color.mPrimary : "transparent"
         }
         Rectangle {
             anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
             width: 1; height: parent.height * 0.5
             color: Color.mOutline; opacity: 0.5
-            visible: parent.showDivider
+            visible: segItem.showDivider
         }
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 1
             NIcon {
-                icon: parent.icon; pointSize: Style.fontSizeS
-                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                icon: segItem.icon; pointSize: Style.fontSizeS
+                color: segItem.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
                 Layout.alignment: Qt.AlignHCenter
             }
             NText {
-                text: parent.label; pointSize: Style.fontSizeXS
-                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                text: segItem.label; pointSize: Style.fontSizeXS
+                color: segItem.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
                 Layout.alignment: Qt.AlignHCenter
             }
         }
         MouseArea {
-            anchors.fill: parent; enabled: parent.enabled
+            anchors.fill: parent; enabled: segItem.enabled
             cursorShape: Qt.PointingHandCursor
-            onClicked: parent.clicked()
+            onClicked: segItem.clicked()
         }
     }
 }
