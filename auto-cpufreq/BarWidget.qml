@@ -153,14 +153,14 @@ Item {
     }
 
     function setForce(mode) {
-        forceProc.command = ["pkexec", "auto-cpufreq", "--force=" + mode]
+        forceProc.command = ["sudo", "auto-cpufreq", "--force=" + mode]
         forceProc.running = false
         forceProc.running = true
         root.forceOverride = (mode === "reset") ? "default" : mode
     }
 
     function setTurbo(mode) {
-        turboProc.command = ["pkexec", "auto-cpufreq", "--turbo=" + mode]
+        turboProc.command = ["sudo", "auto-cpufreq", "--turbo=" + mode]
         turboProc.running = false
         turboProc.running = true
     }
