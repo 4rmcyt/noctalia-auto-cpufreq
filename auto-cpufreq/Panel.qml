@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import qs.Commons
 import qs.Services.UI
+import qs.Services.System
 import qs.Widgets
 
 Item {
@@ -10,13 +11,16 @@ Item {
 
     readonly property var main: pluginApi?.mainInstance
     readonly property var geometryPlaceholder: panelContainer
-
-    property real contentPreferredWidth:  360 * Style.uiScaleRatio
-    property real contentPreferredHeight: (mainCol.implicitHeight + Style.marginL * 4) * Style.uiScaleRatio
-
     readonly property bool allowAttach: true
 
+    property real contentPreferredWidth:  360 * Style.uiScaleRatio
+    property real contentPreferredHeight: mainCol.implicitHeight + Style.marginL * 4
+
     anchors.fill: parent
+
+    // Register with SystemStatService so it runs while panel is open
+    Component.onCompleted: SystemStatService.registerComponent("auto-cpufreq-panel")
+    Component.onDestruction: SystemStatService.unregisterComponent("auto-cpufreq-panel")
 
     Rectangle {
         id: panelContainer
@@ -71,7 +75,7 @@ Item {
                 }
             }
 
-            // ── CPU stats ─────────────────────────────────────────────────────
+            // ── CPU stats (SystemStatService) ─────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: statsRow.implicitHeight + Style.marginM * 2
@@ -86,9 +90,9 @@ Item {
                     StatCell {
                         icon: "activity"
                         label: pluginApi?.tr("panel.cpu-usage")
-                        value: (root.main?.cpuUsage ?? 0) + "%"
+                        value: Math.round(SystemStatService.cpuUsage) + "%"
                         valueColor: {
-                            let u = root.main?.cpuUsage ?? 0
+                            let u = SystemStatService.cpuUsage
                             if (u >= 90) return Color.mError
                             if (u >= 70) return Color.mTertiary
                             return Color.mOnSurface
@@ -98,17 +102,17 @@ Item {
                     StatCell {
                         icon: "cpu"
                         label: pluginApi?.tr("panel.cpu-freq")
-                        value: (root.main?.cpuFreqMhz ?? 0) > 0
-                            ? Math.round(root.main.cpuFreqMhz) + " MHz"
-                            : "—"
+                        value: SystemStatService.cpuFreq || "—"
                     }
 
                     StatCell {
                         icon: "thermometer"
                         label: pluginApi?.tr("panel.cpu-temp")
-                        value: root.main?.cpuTemp ?? "—"
+                        value: SystemStatService.cpuTemp > 0
+                            ? Math.round(SystemStatService.cpuTemp) + "°C"
+                            : "—"
                         valueColor: {
-                            let t = parseInt(root.main?.cpuTemp ?? "0")
+                            let t = SystemStatService.cpuTemp
                             if (t >= 90) return Color.mError
                             if (t >= 75) return Color.mTertiary
                             return Color.mOnSurface
@@ -117,38 +121,28 @@ Item {
                 }
             }
 
-            // ── Battery ───────────────────────────────────────────────────
+            // ── Battery (BatteryService + NBattery widget) ────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: batRow.implicitHeight + Style.marginM * 2
                 color: Color.mSurfaceVariant
                 radius: Style.radiusM
-                visible: (root.main?.batCapacity ?? -1) >= 0
+                visible: BatteryService.batteryReady
 
                 RowLayout {
                     id: batRow
                     anchors { fill: parent; margins: Style.marginM }
                     spacing: Style.marginM
 
-                    NIcon {
-                        icon: {
-                            let s = root.main?.batStatus ?? ""
-                            if (s === "Charging") return "battery-charging"
-                            let c = root.main?.batCapacity ?? 0
-                            if (c >= 80) return "battery-4"
-                            if (c >= 60) return "battery-3"
-                            if (c >= 40) return "battery-2"
-                            if (c >= 20) return "battery-1"
-                            return "battery"
-                        }
-                        color: {
-                            let s = root.main?.batStatus ?? ""
-                            if (s === "Charging") return Color.mTertiary
-                            let c = root.main?.batCapacity ?? 100
-                            if (c <= 20) return Color.mError
-                            return Color.mOnSurface
-                        }
-                        pointSize: Style.fontSizeXL
+                    NBattery {
+                        percentage: BatteryService.batteryPercentage
+                        charging:   BatteryService.batteryCharging
+                        pluggedIn:  BatteryService.batteryPluggedIn
+                        ready:      BatteryService.batteryReady
+                        low:        BatteryService.batteryPercentage <= BatteryService.warningThreshold
+                        critical:   BatteryService.batteryPercentage <= BatteryService.criticalThreshold
+                        baseSize:   Style.fontSizeXL
+                        showPercentageText: true
                     }
 
                     ColumnLayout {
@@ -156,22 +150,20 @@ Item {
                         Layout.fillWidth: true
 
                         NText {
-                            text: (root.main?.batCapacity ?? 0) + "%  ·  " + (root.main?.batStatus ?? "—")
+                            text: Math.round(BatteryService.batteryPercentage) + "%  ·  "
+                                + (BatteryService.batteryCharging ? pluginApi?.tr("panel.bat-charging")
+                                   : BatteryService.batteryPluggedIn ? pluginApi?.tr("panel.bat-plugged")
+                                   : pluginApi?.tr("panel.bat-discharging"))
                             pointSize: Style.fontSizeM
                             font.weight: Font.Bold
                             color: Color.mOnSurface
                         }
 
                         NText {
-                            visible: (root.main?.batWatts ?? 0) > 0
-                            text: {
-                                let s = root.main?.batStatus ?? ""
-                                let w = root.main?.batWatts ?? 0
-                                if (s === "Charging") return "+" + w.toFixed(1) + " W"
-                                return "−" + w.toFixed(1) + " W"
-                            }
+                            text: BatteryService.getRateText(BatteryService.primaryDevice)
                             pointSize: Style.fontSizeXS
                             color: Color.mOnSurfaceVariant
+                            visible: text !== ""
                         }
                     }
                 }
@@ -252,7 +244,7 @@ Item {
                 }
             }
 
-            // ── pkexec error banner ───────────────────────────────────────
+            // ── pkexec error banner ───────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: errorRow.implicitHeight + Style.marginM * 2
@@ -264,13 +256,7 @@ Item {
                     id: errorRow
                     anchors { fill: parent; margins: Style.marginM }
                     spacing: Style.marginM
-
-                    NIcon {
-                        icon: "alert-triangle"
-                        color: Color.mError
-                        pointSize: Style.fontSizeM
-                    }
-
+                    NIcon { icon: "alert-triangle"; color: Color.mError; pointSize: Style.fontSizeM }
                     NText {
                         text: pluginApi?.tr("panel.pkexec-error")
                         pointSize: Style.fontSizeXS
@@ -380,24 +366,21 @@ Item {
                                 width: parent.width / 3; height: parent.height
                                 icon: "bolt-off"; label: pluginApi?.tr("panel.turbo-never")
                                 active: (root.main?.turboState ?? "") === "off"
-                                enabled: parent.avail
-                                showDivider: true
+                                enabled: parent.avail; showDivider: true
                                 onClicked: root.main?.setTurbo("never")
                             }
                             SegItem {
                                 width: parent.width / 3; height: parent.height
                                 icon: "cpu"; label: pluginApi?.tr("panel.turbo-auto")
                                 active: false
-                                enabled: parent.avail
-                                showDivider: true
+                                enabled: parent.avail; showDivider: true
                                 onClicked: root.main?.setTurbo("auto")
                             }
                             SegItem {
                                 width: parent.width / 3; height: parent.height
                                 icon: "bolt"; label: pluginApi?.tr("panel.turbo-always")
                                 active: (root.main?.turboState ?? "") === "on"
-                                enabled: parent.avail
-                                showDivider: false
+                                enabled: parent.avail; showDivider: false
                                 onClicked: root.main?.setTurbo("always")
                             }
                         }
@@ -415,23 +398,16 @@ Item {
         spacing: 2
         Layout.fillWidth: true
         NIcon {
-            icon: parent.icon
-            pointSize: Style.fontSizeM
-            color: Color.mOnSurfaceVariant
-            Layout.alignment: Qt.AlignHCenter
+            icon: parent.icon; pointSize: Style.fontSizeM
+            color: Color.mOnSurfaceVariant; Layout.alignment: Qt.AlignHCenter
         }
         NText {
-            text: parent.value
-            pointSize: Style.fontSizeM
-            font.weight: Font.Bold
-            color: parent.valueColor
-            Layout.alignment: Qt.AlignHCenter
+            text: parent.value; pointSize: Style.fontSizeM; font.weight: Font.Bold
+            color: parent.valueColor; Layout.alignment: Qt.AlignHCenter
         }
         NText {
-            text: parent.label
-            pointSize: Style.fontSizeXS
-            color: Color.mOnSurfaceVariant
-            Layout.alignment: Qt.AlignHCenter
+            text: parent.label; pointSize: Style.fontSizeXS
+            color: Color.mOnSurfaceVariant; Layout.alignment: Qt.AlignHCenter
         }
     }
 
@@ -448,36 +424,28 @@ Item {
             radius: Style.radiusS
             color: parent.active ? Color.mPrimary : "transparent"
         }
-
         Rectangle {
-            anchors.right:          parent.right
-            anchors.verticalCenter: parent.verticalCenter
+            anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
             width: 1; height: parent.height * 0.5
-            color: Color.mOutline
-            opacity: 0.5
+            color: Color.mOutline; opacity: 0.5
             visible: parent.showDivider
         }
-
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 1
             NIcon {
-                icon: parent.icon
-                pointSize: Style.fontSizeS
+                icon: parent.icon; pointSize: Style.fontSizeS
                 color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
                 Layout.alignment: Qt.AlignHCenter
             }
             NText {
-                text: parent.label
-                pointSize: Style.fontSizeXS
+                text: parent.label; pointSize: Style.fontSizeXS
                 color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
                 Layout.alignment: Qt.AlignHCenter
             }
         }
-
         MouseArea {
-            anchors.fill: parent
-            enabled: parent.enabled
+            anchors.fill: parent; enabled: parent.enabled
             cursorShape: Qt.PointingHandCursor
             onClicked: parent.clicked()
         }

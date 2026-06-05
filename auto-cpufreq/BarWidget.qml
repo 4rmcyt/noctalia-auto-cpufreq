@@ -5,6 +5,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Widgets
 import qs.Services.UI
+import qs.Services.System
 
 Item {
     id: root
@@ -19,27 +20,21 @@ Item {
     property var cfg:      pluginApi?.pluginSettings || ({})
     property var defaults: pluginApi?.manifest?.metadata?.defaultSettings || ({})
 
+    // ── Per-screen bar properties ─────────────────────────────────────────────
+    readonly property string screenName:    screen?.name ?? ""
+    readonly property string barPosition:   Settings.getBarPositionForScreen(screenName)
+    readonly property bool   isBarVertical: barPosition === "left" || barPosition === "right"
+    readonly property real   capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
+    readonly property real   barFontSize:   Style.getBarFontSizeForScreen(screenName)
+    readonly property string fixedFont:     Settings.data?.ui?.fontFixed ?? "monospace"
+    readonly property bool   compact:       cfg.compactMode ?? defaults.compactMode ?? false
+
     // ── State ─────────────────────────────────────────────────────────────────
     property string governor:      "—"
     property string turboState:    "—"
     property bool   daemonRunning: false
     property string forceOverride: "default"
-    property real   cpuUsage:      0.0
-    property real   cpuFreqMhz:    0.0
-    property string cpuTemp:       "—"
-    property var    _prevStat:     null
-
-    // Battery
-    property int    batCapacity:   -1       // -1 = not found
-    property string batStatus:     "—"      // Charging / Discharging / Full / Not charging
-    property real   batWatts:      0.0
-    property string batDevice:     ""       // e.g. "BAT1"
-
-    readonly property string screenName:    screen?.name ?? ""
-    readonly property real   capsuleHeight: Style.getCapsuleHeightForScreen(screenName)
-    readonly property real   barFontSize:   Style.getBarFontSizeForScreen(screenName)
-    readonly property string fixedFont:     Settings.data?.ui?.fontFixed ?? "monospace"
-    readonly property bool   compact:       cfg.compactMode ?? defaults.compactMode ?? false
+    property bool   pkexecFailed:  false
 
     readonly property color govColor: {
         if (governor === "performance") return Color.mTertiary
@@ -47,9 +42,10 @@ Item {
         return Color.mOnSurface
     }
 
+    // ── Widget dimensions ─────────────────────────────────────────────────────
     readonly property real contentWidth: compact
         ? capsuleHeight
-        : (contentRow.implicitWidth + Style.marginM * 2)
+        : (content.implicitWidth + Style.marginM * 2)
     readonly property real contentHeight: capsuleHeight
 
     implicitWidth:  contentWidth
@@ -59,7 +55,7 @@ Item {
         if (pluginApi) pluginApi.mainInstance = root
     }
 
-    // ── Sysfs readers ─────────────────────────────────────────────────────────
+    // ── Sysfs: governor ───────────────────────────────────────────────────────
     FileView {
         id: governorFile
         path: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
@@ -88,97 +84,6 @@ Item {
         }
     }
 
-    FileView {
-        id: cpuFreqFile
-        path: "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"
-        printErrors: false
-        onLoaded: {
-            let kHz = parseInt(text().trim())
-            if (!isNaN(kHz)) root.cpuFreqMhz = kHz / 1000.0
-        }
-    }
-
-    FileView {
-        id: procStatFile
-        path: "/proc/stat"
-        printErrors: false
-        onLoaded: {
-            let lines = text().split("\n")
-            for (let line of lines) {
-                if (!line.startsWith("cpu ")) continue
-                let p = line.trim().split(/\s+/)
-                let user = parseInt(p[1]), nice = parseInt(p[2]),
-                    sys  = parseInt(p[3]), idle = parseInt(p[4]),
-                    iow  = parseInt(p[5]), irq  = parseInt(p[6]),
-                    sirq = parseInt(p[7])
-                let total = user+nice+sys+idle+iow+irq+sirq
-                let busy  = user+nice+sys+irq+sirq
-                if (root._prevStat) {
-                    let dt = total - root._prevStat.total
-                    let db = busy  - root._prevStat.busy
-                    if (dt > 0) root.cpuUsage = Math.round((db/dt)*100)
-                }
-                root._prevStat = {total: total, busy: busy}
-                break
-            }
-        }
-    }
-
-    // k10temp (AMD) or coretemp (Intel) — find dynamically
-    Process {
-        id: tempReader
-        command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*/name; do n=$(cat $d 2>/dev/null); if [ \"$n\" = \"k10temp\" ] || [ \"$n\" = \"coretemp\" ]; then dir=$(dirname $d); t=$(cat $dir/temp1_input 2>/dev/null); if [ -n \"$t\" ]; then echo $t; exit 0; fi; fi; done"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let v = parseInt(text.trim())
-                if (!isNaN(v) && v > 1000) root.cpuTemp = Math.round(v/1000) + "°C"
-            }
-        }
-    }
-
-    // ── Battery — find first BAT* device dynamically ─────────────────────────
-    Process {
-        id: batFinder
-        command: ["sh", "-c", "for d in /sys/class/power_supply/*/type; do t=$(cat $d 2>/dev/null); if [ \"$t\" = \"Battery\" ]; then basename $(dirname $d); exit 0; fi; done"]
-        running: false
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let dev = text.trim()
-                if (dev !== "") {
-                    root.batDevice = dev
-                    batUevent.reload()
-                }
-            }
-        }
-    }
-
-    FileView {
-        id: batUevent
-        path: root.batDevice !== "" ? "/sys/class/power_supply/" + root.batDevice + "/uevent" : "/dev/null"
-        printErrors: false
-        onLoaded: {
-            let lines = text().split("\n")
-            let cap = -1, status = "—", currentUa = 0, voltageUv = 0
-            for (let line of lines) {
-                if (line.startsWith("POWER_SUPPLY_CAPACITY="))
-                    cap = parseInt(line.split("=")[1]) || -1
-                else if (line.startsWith("POWER_SUPPLY_STATUS="))
-                    status = line.split("=")[1].trim()
-                else if (line.startsWith("POWER_SUPPLY_CURRENT_NOW="))
-                    currentUa = parseInt(line.split("=")[1]) || 0
-                else if (line.startsWith("POWER_SUPPLY_VOLTAGE_NOW="))
-                    voltageUv = parseInt(line.split("=")[1]) || 0
-            }
-            root.batCapacity = cap
-            root.batStatus   = status
-            // W = V * I  (µV * µA → W: divide by 1e12)
-            root.batWatts = (voltageUv > 0 && currentUa > 0)
-                ? Math.round((voltageUv / 1e6) * (currentUa / 1e6) * 10) / 10
-                : 0.0
-        }
-    }
-
     // ── Daemon check ──────────────────────────────────────────────────────────
     Process {
         id: daemonChecker
@@ -188,18 +93,12 @@ Item {
     }
 
     // ── Actions ───────────────────────────────────────────────────────────────
-    property bool pkexecFailed: false
-
     Process {
         id: forceProc
         running: false
         onExited: (code) => {
-            if (code === 0) {
-                root.pkexecFailed = false
-                root.refreshAll()
-            } else if (code === 127 || code === 126) {
-                root.pkexecFailed = true
-            }
+            if (code === 0) { root.pkexecFailed = false; root.refreshAll() }
+            else if (code === 126 || code === 127) root.pkexecFailed = true
         }
     }
 
@@ -207,12 +106,8 @@ Item {
         id: turboProc
         running: false
         onExited: (code) => {
-            if (code === 0) {
-                root.pkexecFailed = false
-                root.refreshAll()
-            } else if (code === 127 || code === 126) {
-                root.pkexecFailed = true
-            }
+            if (code === 0) { root.pkexecFailed = false; root.refreshAll() }
+            else if (code === 126 || code === 127) root.pkexecFailed = true
         }
     }
 
@@ -233,19 +128,8 @@ Item {
         governorFile.reload()
         noTurboFile.reload()
         boostFile.reload()
-        cpuFreqFile.reload()
-        procStatFile.reload()
-        tempReader.running = false
-        tempReader.running = true
         daemonChecker.running = false
         daemonChecker.running = true
-        // battery: find device once, then just reload uevent
-        if (root.batDevice === "") {
-            batFinder.running = false
-            batFinder.running = true
-        } else {
-            batUevent.reload()
-        }
     }
 
     // ── Poll timer ────────────────────────────────────────────────────────────
@@ -257,16 +141,20 @@ Item {
         onTriggered: root.refreshAll()
     }
 
-    // ── Bar capsule ───────────────────────────────────────────────────────────
+    // ── Visual capsule (correct noctalia pattern) ─────────────────────────────
     Rectangle {
-        anchors.centerIn: parent
+        id: visualCapsule
+        x: Style.pixelAlignCenter(parent.width, width)
+        y: Style.pixelAlignCenter(parent.height, height)
         width:  root.contentWidth
         height: root.contentHeight
         radius: Style.radiusL
         color:  mouseArea.containsMouse ? Color.mHover : Style.capsuleColor
+        border.color: Style.capsuleBorderColor
+        border.width: Style.capsuleBorderWidth
 
         RowLayout {
-            id: contentRow
+            id: content
             anchors.centerIn: parent
             spacing: Style.marginS
 
@@ -337,5 +225,7 @@ Item {
             else
                 PanelService.showContextMenu(contextMenu, root, screen)
         }
+        onEntered: TooltipService.show(root, root.governor + " · turbo: " + root.turboState, BarService.getTooltipDirection())
+        onExited:  TooltipService.hide()
     }
 }
