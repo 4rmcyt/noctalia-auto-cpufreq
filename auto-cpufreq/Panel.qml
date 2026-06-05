@@ -12,8 +12,7 @@ Item {
     readonly property var geometryPlaceholder: panelContainer
 
     property real contentPreferredWidth:  360 * Style.uiScaleRatio
-    property real contentPreferredHeight: implicitPanelHeight * Style.uiScaleRatio
-    readonly property real implicitPanelHeight: mainCol.implicitHeight + Style.marginL * 4
+    property real contentPreferredHeight: (mainCol.implicitHeight + Style.marginL * 4) * Style.uiScaleRatio
 
     readonly property bool allowAttach: true
 
@@ -26,13 +25,10 @@ Item {
 
         ColumnLayout {
             id: mainCol
-            anchors {
-                fill: parent
-                margins: Style.marginL
-            }
+            anchors { fill: parent; margins: Style.marginL }
             spacing: Style.marginM
 
-            // ── Header: daemon status ─────────────────────────────────────────
+            // ── Header ────────────────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: headerRow.implicitHeight + Style.marginM * 2
@@ -53,14 +49,12 @@ Item {
                     ColumnLayout {
                         spacing: 2
                         Layout.fillWidth: true
-
                         NText {
-                            text: pluginApi?.tr("panel.title")
+                            text: "auto-cpufreq"
                             pointSize: Style.fontSizeM
                             font.weight: Font.Bold
                             color: Color.mOnSurface
                         }
-
                         NText {
                             text: root.main?.daemonRunning
                                 ? pluginApi?.tr("panel.daemon-running")
@@ -70,7 +64,6 @@ Item {
                         }
                     }
 
-                    // Refresh button
                     NIconButton {
                         icon: "refresh"
                         onClicked: root.main?.refreshAll()
@@ -78,7 +71,7 @@ Item {
                 }
             }
 
-            // ── CPU stats row ─────────────────────────────────────────────────
+            // ── CPU stats ─────────────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: statsRow.implicitHeight + Style.marginM * 2
@@ -103,9 +96,9 @@ Item {
                     }
 
                     StatCell {
-                        icon: "speed"
+                        icon: "cpu"
                         label: pluginApi?.tr("panel.cpu-freq")
-                        value: root.main?.cpuFreqMhz > 0
+                        value: (root.main?.cpuFreqMhz ?? 0) > 0
                             ? Math.round(root.main.cpuFreqMhz) + " MHz"
                             : "—"
                     }
@@ -113,7 +106,7 @@ Item {
                     StatCell {
                         icon: "thermometer"
                         label: pluginApi?.tr("panel.cpu-temp")
-                        value: root.main?.cpuTemp || "—"
+                        value: root.main?.cpuTemp ?? "—"
                         valueColor: {
                             let t = parseInt(root.main?.cpuTemp ?? "0")
                             if (t >= 90) return Color.mError
@@ -179,19 +172,14 @@ Item {
                         }
                     }
 
-                    // Turbo row
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: Style.marginM
 
                         NIcon {
                             icon: "bolt"
-                            color: {
-                                let t = root.main?.turboState ?? "unknown"
-                                if (t === "on")  return Color.mTertiary
-                                if (t === "off") return Color.mOnSurfaceVariant
-                                return Color.mOnSurfaceVariant
-                            }
+                            color: (root.main?.turboState ?? "") === "on"
+                                ? Color.mTertiary : Color.mOnSurfaceVariant
                         }
 
                         NText {
@@ -204,7 +192,7 @@ Item {
                 }
             }
 
-            // ── Force override buttons ────────────────────────────────────────
+            // ── Force override ────────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: forceCol.implicitHeight + Style.marginM * 2
@@ -235,7 +223,6 @@ Item {
                             Layout.fillWidth: true
                             onClicked: root.main?.setForce("powersave")
                         }
-
                         ForceButton {
                             icon: "scale"
                             label: pluginApi?.tr("panel.auto")
@@ -244,7 +231,6 @@ Item {
                             Layout.fillWidth: true
                             onClicked: root.main?.setForce("reset")
                         }
-
                         ForceButton {
                             icon: "gauge"
                             label: pluginApi?.tr("panel.performance")
@@ -257,7 +243,7 @@ Item {
                 }
             }
 
-            // ── Turbo override buttons ────────────────────────────────────────
+            // ── Turbo boost ───────────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
                 implicitHeight: turboCol.implicitHeight + Style.marginM * 2
@@ -280,29 +266,29 @@ Item {
                         Layout.fillWidth: true
                         spacing: Style.marginS
 
+                        property bool turboAvailable: (root.main?.turboState ?? "n/a") !== "n/a"
+
                         ForceButton {
                             icon: "bolt-off"
                             label: pluginApi?.tr("panel.turbo-never")
                             active: (root.main?.turboState ?? "") === "off"
-                            enabled: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "unknown") !== "n/a"
+                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
                             Layout.fillWidth: true
                             onClicked: root.main?.setTurbo("never")
                         }
-
                         ForceButton {
                             icon: "cpu"
                             label: pluginApi?.tr("panel.turbo-auto")
                             active: false
-                            enabled: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "unknown") !== "n/a"
+                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
                             Layout.fillWidth: true
                             onClicked: root.main?.setTurbo("auto")
                         }
-
                         ForceButton {
                             icon: "bolt"
                             label: pluginApi?.tr("panel.turbo-always")
                             active: (root.main?.turboState ?? "") === "on"
-                            enabled: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "unknown") !== "n/a"
+                            enabled: (root.main?.daemonRunning ?? false) && parent.turboAvailable
                             Layout.fillWidth: true
                             onClicked: root.main?.setTurbo("always")
                         }
@@ -312,17 +298,13 @@ Item {
         }
     }
 
-    // ── Reusable inline components ────────────────────────────────────────────
-
     component StatCell: ColumnLayout {
         property string icon: ""
         property string label: ""
         property string value: "—"
         property color  valueColor: Color.mOnSurface
-
         spacing: 2
         Layout.fillWidth: true
-
         NIcon {
             icon: parent.icon
             pointSize: Style.fontSizeM
@@ -348,7 +330,6 @@ Item {
         property string icon: ""
         property string label: ""
         property bool   active: false
-
         implicitHeight: 48 * Style.uiScaleRatio
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
@@ -358,13 +339,13 @@ Item {
             radius: Style.radiusS
             color: parent.active
                 ? Color.mPrimary
-                : (parent.containsMouse ? Color.mSurfaceContainerHigh : Color.mSurface)
+                : (parent.containsMouse ? Color.mSurface : Color.mSurface)
+            opacity: parent.active ? 1.0 : (parent.containsMouse ? 0.8 : 0.4)
         }
 
         ColumnLayout {
             anchors.centerIn: parent
             spacing: 2
-
             NIcon {
                 icon: parent.icon
                 pointSize: Style.fontSizeM
