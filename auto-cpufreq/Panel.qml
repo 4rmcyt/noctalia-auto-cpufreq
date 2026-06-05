@@ -117,6 +117,66 @@ Item {
                 }
             }
 
+            // ── Battery ───────────────────────────────────────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: batRow.implicitHeight + Style.marginM * 2
+                color: Color.mSurfaceVariant
+                radius: Style.radiusM
+                visible: (root.main?.batCapacity ?? -1) >= 0
+
+                RowLayout {
+                    id: batRow
+                    anchors { fill: parent; margins: Style.marginM }
+                    spacing: Style.marginM
+
+                    NIcon {
+                        icon: {
+                            let s = root.main?.batStatus ?? ""
+                            if (s === "Charging") return "battery-charging"
+                            let c = root.main?.batCapacity ?? 0
+                            if (c >= 80) return "battery-4"
+                            if (c >= 60) return "battery-3"
+                            if (c >= 40) return "battery-2"
+                            if (c >= 20) return "battery-1"
+                            return "battery"
+                        }
+                        color: {
+                            let s = root.main?.batStatus ?? ""
+                            if (s === "Charging") return Color.mTertiary
+                            let c = root.main?.batCapacity ?? 100
+                            if (c <= 20) return Color.mError
+                            return Color.mOnSurface
+                        }
+                        pointSize: Style.fontSizeXL
+                    }
+
+                    ColumnLayout {
+                        spacing: 2
+                        Layout.fillWidth: true
+
+                        NText {
+                            text: (root.main?.batCapacity ?? 0) + "%  ·  " + (root.main?.batStatus ?? "—")
+                            pointSize: Style.fontSizeM
+                            font.weight: Font.Bold
+                            color: Color.mOnSurface
+                        }
+
+                        NText {
+                            visible: (root.main?.batWatts ?? 0) > 0
+                            text: {
+                                let s = root.main?.batStatus ?? ""
+                                let w = root.main?.batWatts ?? 0
+                                if (s === "Charging") return "+" + w.toFixed(1) + " W"
+                                return "−" + w.toFixed(1) + " W"
+                            }
+                            pointSize: Style.fontSizeXS
+                            color: Color.mOnSurfaceVariant
+                        }
+                    }
+                }
+            }
+
             // ── Governor & turbo ──────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
