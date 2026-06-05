@@ -337,10 +337,10 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: Style.radiusS
-            color: parent.active
-                ? Color.mPrimary
-                : (parent.containsMouse ? Color.mSurface : Color.mSurface)
-            opacity: parent.active ? 1.0 : (parent.containsMouse ? 0.8 : 0.4)
+            color: parent.active ? Color.mPrimary : "transparent"
+            border.color: parent.active ? "transparent" : Color.mOutlineVariant
+            border.width: 1
+            opacity: parent.enabled ? 1.0 : 0.4
         }
 
         ColumnLayout {

@@ -118,13 +118,16 @@ Item {
         }
     }
 
-    FileView {
-        id: tempFile
-        path: "/sys/class/thermal/thermal_zone0/temp"
-        printErrors: false
-        onLoaded: {
-            let v = parseInt(text().trim())
-            if (!isNaN(v) && v > 1000) root.cpuTemp = Math.round(v/1000) + "°C"
+    // k10temp (AMD) or coretemp (Intel) — find dynamically
+    Process {
+        id: tempReader
+        command: ["sh", "-c", "for d in /sys/class/hwmon/hwmon*/name; do n=$(cat $d 2>/dev/null); if [ \"$n\" = \"k10temp\" ] || [ \"$n\" = \"coretemp\" ]; then dir=$(dirname $d); t=$(cat $dir/temp1_input 2>/dev/null); if [ -n \"$t\" ]; then echo $t; exit 0; fi; fi; done"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let v = parseInt(text.trim())
+                if (!isNaN(v) && v > 1000) root.cpuTemp = Math.round(v/1000) + "°C"
+            }
         }
     }
 
@@ -168,7 +171,8 @@ Item {
         boostFile.reload()
         cpuFreqFile.reload()
         procStatFile.reload()
-        tempFile.reload()
+        tempReader.running = false
+        tempReader.running = true
         daemonChecker.running = false
         daemonChecker.running = true
     }
