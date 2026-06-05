@@ -84,6 +84,41 @@ Item {
         }
     }
 
+    // ── Override state — read pickle files ───────────────────────────────────
+    // Pickle is binary but contains the string value — grep works fine
+    Process {
+        id: overrideReader
+        // Try common paths: NixOS uses /run/, classic installs use /opt/auto-cpufreq/
+        command: ["sh", "-c",
+            "for f in /run/override.pickle /opt/auto-cpufreq/override.pickle; do " +
+            "  [ -f \"$f\" ] && strings \"$f\" | grep -E '^(powersave|performance)$' && exit 0; " +
+            "done; echo 'default'"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let v = text.trim()
+                if (v === "powersave" || v === "performance") root.forceOverride = v
+                else root.forceOverride = "default"
+            }
+        }
+    }
+
+    Process {
+        id: turboOverrideReader
+        command: ["sh", "-c",
+            "for f in /run/turbo-override.pickle /opt/auto-cpufreq/turbo-override.pickle; do " +
+            "  [ -f \"$f\" ] && strings \"$f\" | grep -E '^(never|always)$' && exit 0; " +
+            "done; echo 'auto'"]
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let v = text.trim()
+                // turboState is read from sysfs — override just tells us the intent
+                // we don't need to store it separately, sysfs reflects the result
+            }
+        }
+    }
+
     // ── Daemon check ──────────────────────────────────────────────────────────
     Process {
         id: daemonChecker
@@ -115,7 +150,7 @@ Item {
         forceProc.command = ["pkexec", "auto-cpufreq", "--force=" + mode]
         forceProc.running = false
         forceProc.running = true
-        root.forceOverride = (mode === "reset") ? "default" : mode
+        // don't set locally — refreshAll() will read real state from pickle
     }
 
     function setTurbo(mode) {
@@ -130,6 +165,8 @@ Item {
         boostFile.reload()
         daemonChecker.running = false
         daemonChecker.running = true
+        overrideReader.running = false
+        overrideReader.running = true
     }
 
     // ── Poll timer ────────────────────────────────────────────────────────────

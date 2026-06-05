@@ -123,19 +123,19 @@ Item {
 
             // ── Battery (BatteryService + NBattery widget) ────────────────────
             Rectangle {
+                id: batCard
                 Layout.fillWidth: true
                 implicitHeight: batRow.implicitHeight + Style.marginM * 2
                 color: Color.mSurfaceVariant
                 radius: Style.radiusM
-                // show if any laptop battery found, even if displayDevice isn't ready
-                visible: BatteryService.batteryReady || BatteryService.laptopBatteries.length > 0
+                visible: batCard.bat !== null
 
                 readonly property var bat: BatteryService.primaryDevice
                     ?? (BatteryService.laptopBatteries.length > 0 ? BatteryService.laptopBatteries[0] : null)
-                readonly property real pct:      bat ? BatteryService.getPercentage(bat) : 0
-                readonly property bool charging: bat ? BatteryService.isCharging(bat)   : false
-                readonly property bool plugged:  bat ? BatteryService.isPluggedIn(bat)  : false
-                readonly property bool ready:    bat ? BatteryService.isDeviceReady(bat): false
+                readonly property real pct:      batCard.bat ? BatteryService.getPercentage(batCard.bat) : 0
+                readonly property bool charging: batCard.bat ? BatteryService.isCharging(batCard.bat)    : false
+                readonly property bool plugged:  batCard.bat ? BatteryService.isPluggedIn(batCard.bat)   : false
+                readonly property bool ready:    batCard.bat ? BatteryService.isDeviceReady(batCard.bat) : false
 
                 RowLayout {
                     id: batRow
@@ -143,12 +143,12 @@ Item {
                     spacing: Style.marginM
 
                     NBattery {
-                        percentage: parent.parent.pct
-                        charging:   parent.parent.charging
-                        pluggedIn:  parent.parent.plugged
-                        ready:      parent.parent.ready
-                        low:        parent.parent.pct <= BatteryService.warningThreshold
-                        critical:   parent.parent.pct <= BatteryService.criticalThreshold
+                        percentage: batCard.pct
+                        charging:   batCard.charging
+                        pluggedIn:  batCard.plugged
+                        ready:      batCard.ready
+                        low:        batCard.pct <= BatteryService.warningThreshold
+                        critical:   batCard.pct <= BatteryService.criticalThreshold
                         baseSize:   Style.fontSizeXL
                         showPercentageText: true
                     }
@@ -158,9 +158,9 @@ Item {
                         Layout.fillWidth: true
 
                         NText {
-                            text: Math.round(parent.parent.parent.pct) + "%  ·  "
-                                + (parent.parent.parent.charging ? pluginApi?.tr("panel.bat-charging")
-                                   : parent.parent.parent.plugged ? pluginApi?.tr("panel.bat-plugged")
+                            text: Math.round(batCard.pct) + "%  ·  "
+                                + (batCard.charging ? pluginApi?.tr("panel.bat-charging")
+                                   : batCard.plugged ? pluginApi?.tr("panel.bat-plugged")
                                    : pluginApi?.tr("panel.bat-discharging"))
                             pointSize: Style.fontSizeM
                             font.weight: Font.Bold
@@ -168,7 +168,7 @@ Item {
                         }
 
                         NText {
-                            text: BatteryService.getRateText(parent.parent.parent.bat) ?? ""
+                            text: BatteryService.getRateText(batCard.bat) ?? ""
                             pointSize: Style.fontSizeXS
                             color: Color.mOnSurfaceVariant
                             visible: text !== ""
