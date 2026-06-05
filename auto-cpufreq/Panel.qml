@@ -281,28 +281,128 @@ Item {
                 }
             }
 
-            // ── Force override — segmented control ────────────────────────────
-            SegmentedControl {
+            // ── Force override ────────────────────────────────────────────────
+            Rectangle {
                 Layout.fillWidth: true
-                enabled: root.main?.daemonRunning ?? false
-                label: pluginApi?.tr("panel.section-force")
-                segments: [
-                    { icon: "leaf",  text: pluginApi?.tr("panel.powersave"),   active: (root.main?.forceOverride ?? "") === "powersave",  action: function() { root.main?.setForce("powersave") } },
-                    { icon: "scale", text: pluginApi?.tr("panel.auto"),         active: (root.main?.forceOverride ?? "default") === "default", action: function() { root.main?.setForce("reset") } },
-                    { icon: "gauge", text: pluginApi?.tr("panel.performance"),  active: (root.main?.forceOverride ?? "") === "performance", action: function() { root.main?.setForce("performance") } }
-                ]
+                implicitHeight: forceCol.implicitHeight + Style.marginM * 2
+                color: Color.mSurfaceVariant
+                radius: Style.radiusM
+                opacity: (root.main?.daemonRunning ?? false) ? 1.0 : 0.4
+
+                ColumnLayout {
+                    id: forceCol
+                    anchors { fill: parent; margins: Style.marginM }
+                    spacing: Style.marginS
+
+                    NText {
+                        text: pluginApi?.tr("panel.section-force")
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                        font.weight: Font.Medium
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 44 * Style.uiScaleRatio
+                        color: Color.mSurface
+                        radius: Style.radiusS
+                        border.color: Color.mOutline
+                        border.width: 1
+                        clip: true
+
+                        Row {
+                            anchors.fill: parent
+
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "leaf"; label: pluginApi?.tr("panel.powersave")
+                                active: (root.main?.forceOverride ?? "") === "powersave"
+                                enabled: root.main?.daemonRunning ?? false
+                                showDivider: true
+                                onClicked: root.main?.setForce("powersave")
+                            }
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "scale"; label: pluginApi?.tr("panel.auto")
+                                active: (root.main?.forceOverride ?? "default") === "default"
+                                enabled: root.main?.daemonRunning ?? false
+                                showDivider: true
+                                onClicked: root.main?.setForce("reset")
+                            }
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "gauge"; label: pluginApi?.tr("panel.performance")
+                                active: (root.main?.forceOverride ?? "") === "performance"
+                                enabled: root.main?.daemonRunning ?? false
+                                showDivider: false
+                                onClicked: root.main?.setForce("performance")
+                            }
+                        }
+                    }
+                }
             }
 
-            // ── Turbo boost — segmented control ───────────────────────────────
-            SegmentedControl {
+            // ── Turbo boost ───────────────────────────────────────────────────
+            Rectangle {
                 Layout.fillWidth: true
-                enabled: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "n/a") !== "n/a"
-                label: pluginApi?.tr("panel.section-turbo")
-                segments: [
-                    { icon: "bolt-off", text: pluginApi?.tr("panel.turbo-never"),  active: (root.main?.turboState ?? "") === "off", action: function() { root.main?.setTurbo("never") } },
-                    { icon: "cpu",      text: pluginApi?.tr("panel.turbo-auto"),    active: false,                                   action: function() { root.main?.setTurbo("auto") } },
-                    { icon: "bolt",     text: pluginApi?.tr("panel.turbo-always"),  active: (root.main?.turboState ?? "") === "on",  action: function() { root.main?.setTurbo("always") } }
-                ]
+                implicitHeight: turboCol.implicitHeight + Style.marginM * 2
+                color: Color.mSurfaceVariant
+                radius: Style.radiusM
+                property bool turboAvailable: (root.main?.turboState ?? "n/a") !== "n/a"
+                opacity: ((root.main?.daemonRunning ?? false) && turboAvailable) ? 1.0 : 0.4
+
+                ColumnLayout {
+                    id: turboCol
+                    anchors { fill: parent; margins: Style.marginM }
+                    spacing: Style.marginS
+
+                    NText {
+                        text: pluginApi?.tr("panel.section-turbo")
+                        pointSize: Style.fontSizeXS
+                        color: Color.mOnSurfaceVariant
+                        font.weight: Font.Medium
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 44 * Style.uiScaleRatio
+                        color: Color.mSurface
+                        radius: Style.radiusS
+                        border.color: Color.mOutline
+                        border.width: 1
+                        clip: true
+
+                        Row {
+                            anchors.fill: parent
+                            property bool avail: (root.main?.daemonRunning ?? false) && (root.main?.turboState ?? "n/a") !== "n/a"
+
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "bolt-off"; label: pluginApi?.tr("panel.turbo-never")
+                                active: (root.main?.turboState ?? "") === "off"
+                                enabled: parent.avail
+                                showDivider: true
+                                onClicked: root.main?.setTurbo("never")
+                            }
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "cpu"; label: pluginApi?.tr("panel.turbo-auto")
+                                active: false
+                                enabled: parent.avail
+                                showDivider: true
+                                onClicked: root.main?.setTurbo("auto")
+                            }
+                            SegItem {
+                                width: parent.width / 3; height: parent.height
+                                icon: "bolt"; label: pluginApi?.tr("panel.turbo-always")
+                                active: (root.main?.turboState ?? "") === "on"
+                                enabled: parent.avail
+                                showDivider: false
+                                onClicked: root.main?.setTurbo("always")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -335,93 +435,51 @@ Item {
         }
     }
 
-    component SegmentedControl: Item {
-        property string    label:    ""
-        property var       segments: []
-        property bool      enabled:  true
+    component SegItem: Item {
+        property string icon:        ""
+        property string label:       ""
+        property bool   active:      false
+        property bool   enabled:     true
+        property bool   showDivider: false
+        signal clicked()
 
-        implicitHeight: segCol.implicitHeight
+        Rectangle {
+            anchors { fill: parent; margins: 3 }
+            radius: Style.radiusS
+            color: parent.active ? Color.mPrimary : "transparent"
+        }
+
+        Rectangle {
+            anchors.right:          parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: 1; height: parent.height * 0.5
+            color: Color.mOutline
+            opacity: 0.5
+            visible: parent.showDivider
+        }
 
         ColumnLayout {
-            id: segCol
-            anchors { left: parent.left; right: parent.right }
-            spacing: Style.marginS
-
+            anchors.centerIn: parent
+            spacing: 1
+            NIcon {
+                icon: parent.icon
+                pointSize: Style.fontSizeS
+                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                Layout.alignment: Qt.AlignHCenter
+            }
             NText {
                 text: parent.label
                 pointSize: Style.fontSizeXS
-                color: Color.mOnSurfaceVariant
-                font.weight: Font.Medium
+                color: parent.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
+                Layout.alignment: Qt.AlignHCenter
             }
+        }
 
-            // Single pill container with dividers
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 40 * Style.uiScaleRatio
-                color: Color.mSurface
-                radius: Style.radiusM
-                border.color: Color.mOutline
-                border.width: 1
-                opacity: parent.parent.enabled ? 1.0 : 0.4
-                clip: true
-
-                Row {
-                    anchors.fill: parent
-
-                    Repeater {
-                        model: parent.parent.parent.parent.segments
-
-                        delegate: Item {
-                            width: parent.width / parent.parent.parent.parent.parent.segments.length
-                            height: parent.height
-
-                            // Active background pill
-                            Rectangle {
-                                anchors { fill: parent; margins: 3 }
-                                radius: Style.radiusS
-                                color: modelData.active ? Color.mPrimary : "transparent"
-                            }
-
-                            // Divider (not on last item)
-                            Rectangle {
-                                anchors.right: parent.right
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 1
-                                height: parent.height * 0.5
-                                color: Color.mOutline
-                                visible: index < parent.parent.parent.parent.parent.segments.length - 1
-                                opacity: 0.5
-                            }
-
-                            ColumnLayout {
-                                anchors.centerIn: parent
-                                spacing: 1
-
-                                NIcon {
-                                    icon: modelData.icon
-                                    pointSize: Style.fontSizeS
-                                    color: modelData.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
-                                    Layout.alignment: Qt.AlignHCenter
-                                }
-                                NText {
-                                    text: modelData.text
-                                    pointSize: Style.fontSizeXS - 1
-                                    color: modelData.active ? Color.mOnPrimary : Color.mOnSurfaceVariant
-                                    Layout.alignment: Qt.AlignHCenter
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                enabled: parent.parent.parent.parent.parent.enabled
-                                cursorShape: Qt.PointingHandCursor
-                                hoverEnabled: true
-                                onClicked: modelData.action()
-                            }
-                        }
-                    }
-                }
-            }
+        MouseArea {
+            anchors.fill: parent
+            enabled: parent.enabled
+            cursorShape: Qt.PointingHandCursor
+            onClicked: parent.clicked()
         }
     }
 }
